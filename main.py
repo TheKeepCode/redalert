@@ -4,8 +4,12 @@ import time
 import argparse
 import datetime
 import numpy as np
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageGrab
 import os
+import mss
+
+# Get the directory path of the script
+script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Initialize pygame for playing sounds
 pygame.init()
@@ -24,17 +28,16 @@ def is_pattern_present(pattern_image, screenshot):
 
 def load_sounds(alert_images):
     sounds = {}
+    script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory path of the script
     for alert_image in alert_images:
-        sounds[alert_image] = "beep.wav"  # Use beep.wav for all alert images
+        sounds[alert_image] = os.path.join(script_dir, "beep.wav")  # Hardcoded sound file name
     return sounds
 
 def save_screenshot_with_timestamp(screenshot, alert_image, screenshot_logs_dir, nodisk):
-    if nodisk == False:
+    if not nodisk:
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")[:-1]
-        filename = os.path.join(screenshot_logs_dir, f"screenshot_{timestamp}_{alert_image}")
+        filename = os.path.join(script_dir, screenshot_logs_dir, f"screenshot_{timestamp}_{alert_image}")
         screenshot.save(filename)
-        if verbose:
-            print(f"Modified screenshot saved as {filename}")
         # Add the filename to the list of modified screenshots
         modified_screenshots.append(filename)
         # Check if there are more than 10 modified screenshots, and delete the oldest one if necessary
@@ -53,14 +56,15 @@ def highlight_pattern(image, location):
     return image  # Return the modified image
 
 def save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk):
-    if nodisk == False:
-        filename = os.path.join(screenshot_logs_dir, "latest_screenshot.png")
+    if not nodisk:
+        filename = os.path.join(script_dir, screenshot_logs_dir, "latest_screenshot.png")
         screenshot.save(filename)
-        if verbose:
-            print("Latest screenshot saved as latest_screenshot.png")
 
 def main(screen_x_range, screen_y_range, alert_images, verbose, nodisk, frequency):
-    global detected_counter, screenshot_counter  # Declare global variables
+    global detected_counter, screenshot_counter, screenshot_logs_dir  # Declare global variables
+
+    # Get the directory path of the script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
 
     # Initialize screenshot_counter
     screenshot_counter = 0
@@ -76,7 +80,7 @@ def main(screen_x_range, screen_y_range, alert_images, verbose, nodisk, frequenc
     sounds = load_sounds(alert_images)
 
     # Create screenshot_logs directory if it doesn't exist
-    screenshot_logs_dir = "screenshot_logs"
+    screenshot_logs_dir = os.path.join(script_dir, "screenshot_logs")
     if not os.path.exists(screenshot_logs_dir):
         os.makedirs(screenshot_logs_dir)
     else:
@@ -90,40 +94,64 @@ def main(screen_x_range, screen_y_range, alert_images, verbose, nodisk, frequenc
                 print(f"Error deleting {file_path}: {e}")
 
     try:
-        while True:
-            detected = False
-            screenshot = pyautogui.screenshot(region=(start_x, start_y, end_x - start_x, end_y - start_y))
-
-            # Check for consecutive detections
-            for alert_image in alert_images:
-                if is_pattern_present(alert_image, screenshot):
-                    detected = True
-                    location = pyautogui.locate(alert_image, screenshot, confidence=0.99)
-                    screenshot_modified = highlight_pattern(screenshot.copy(), location)
-                    save_screenshot_with_timestamp(screenshot_modified, alert_image, screenshot_logs_dir, nodisk)
+        with mss.mss() as sct:
+            for monitor_num, monitor in enumerate(sct.monitors, 1):
+                # Calculate start and end coordinates for each monitor
+                start_x, end_x = map(int, screen_x_range.split(','))
+                start_y, end_y = map(int, screen_y_range.split(','))
                 
-                    if detected_counter > 1:
-                        sound_file = sounds[alert_image]
-                        pygame.mixer.Sound(sound_file).play()
-                        print(f"Pattern {alert_image} detected! Sound played.")
-                        time.sleep(1.5)
-                        break
+                # Adjust start and end coordinates based on monitor's position
+                monitor_start_x, monitor_start_y = monitor["left"], monitor["top"]
+                monitor_end_x = monitor_start_x + monitor["width"]
+                monitor_end_y = monitor_start_y + monitor["height"]
+
+                # Ensure coordinates are within monitor bounds
+                start_x = max(min(start_x, monitor_end_x - 1), monitor_start_x)
+                end_x = max(min(end_x, monitor_end_x), monitor_start_x + 1)
+                start_y = max(min(start_y, monitor_end_y - 1), monitor_start_y)
+                end_y = max(min(end_y, monitor_end_y), monitor_start_y + 1)
+
+                print(f"Capturing screenshots from monitor {monitor_num} - X: {start_x}-{end_x}, Y: {start_y}-{end_y}")
+
+                while True:
+                    detected = False
+
+                    # Capture screenshot
+                    screenshot = sct.grab({"top": start_y, "left": start_x, "width": end_x - start_x, "height": end_y - start_y})
+
+                    # Convert screenshot to PIL Image
+                    screenshot = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
+
+                    # Check for consecutive detections
+                    for alert_image in alert_images:
+                        if is_pattern_present(alert_image, screenshot):
+                            detected = True
+                            location = pyautogui.locate(alert_image, screenshot, confidence=0.99)
+                            screenshot_modified = highlight_pattern(screenshot.copy(), location)
+                            save_screenshot_with_timestamp(screenshot_modified, alert_image, screenshot_logs_dir, nodisk)
+
+                            if detected_counter > 1:
+                                sound_file = sounds[alert_image]
+                                pygame.mixer.Sound(sound_file).play()
+                                print(f"Pattern {alert_image} detected! Sound played.")
+                                time.sleep(1.5)
+                                break
+                            else:
+                                print(f"Pattern {alert_image} detected, below detected_counter threshold, so no sound played.")
+
+                    if detected:
+                        detected_counter += 1
+                        if verbose:
+                            print(f"Detected Counter at {detected_counter} since pattern was detected.")
+                        if detected_counter > 20:
+                            detected_counter = 5
                     else:
-                        print(f"Pattern {alert_image} detected, below detected_counter threshold, so no sound played.")
+                        detected_counter = 0
+                        if verbose:
+                            print(f"Detected Counter at {detected_counter} since pattern was not detected.")
 
-            if detected:
-                detected_counter += 1
-                if verbose:
-                    print(f"Detected Counter at {detected_counter} since pattern was detected.")
-                if detected_counter > 20:
-                    detected_counter = 5
-            else:
-                detected_counter = 0
-                if verbose:
-                    print(f"Detected Counter at {detected_counter} since pattern was not detected.")
-
-            save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk)
-            time.sleep(frequency)
+                    save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk)
+                    time.sleep(frequency)
 
     except KeyboardInterrupt:
         print("\nScript stopped.")
