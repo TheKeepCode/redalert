@@ -5,7 +5,7 @@ This Python3 script should be run on your Windows computer in a separate offscre
 ## Changelog
 
 ### Version 0.0.1
-* Allows for alternative monitor to be specified
+* Multi-monitor support added
 
 ## Screenshot Parameters and Tips
 
@@ -42,7 +42,6 @@ You should set your screen parameters (--screenx and --screeny) to your Local wi
 
 ## Known Limitations and other FAQ
 
-* This script can only read from the primary monitor
 * The function `pyautogui.locate` does not see colors, so "Bad" and "Terrible" will both alarm
 * The images that are included with this script called "terrible.png" and "neutral.png" may not work if you have changed how these appear in your game client - overwrite or include new images as you deem appropriate
 * This script must be run from the same working directory - it must be `python3 main.py --options args` and not `python3 C:\Users\Desktop\etc\main.py --options args`
