@@ -7,6 +7,9 @@ import numpy as np
 from PIL import Image, ImageDraw
 import os
 
+# Get the directory path of the script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+
 # Initialize pygame for playing sounds
 pygame.init()
 
@@ -25,13 +28,13 @@ def is_pattern_present(pattern_image, screenshot):
 def load_sounds(alert_images):
     sounds = {}
     for alert_image in alert_images:
-        sounds[alert_image] = "beep.wav"  # Use beep.wav for all alert images
+        sounds[alert_image] = os.path.join(script_dir, "beep.wav")  # Use beep.wav relative to the script's directory
     return sounds
 
 def save_screenshot_with_timestamp(screenshot, alert_image, screenshot_logs_dir, nodisk):
-    if nodisk == False:
+    if not nodisk:
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")[:-1]
-        filename = os.path.join(screenshot_logs_dir, f"screenshot_{timestamp}_{alert_image}")
+        filename = os.path.join(script_dir, screenshot_logs_dir, f"screenshot_{timestamp}_{alert_image}")
         screenshot.save(filename)
         if verbose:
             print(f"Modified screenshot saved as {filename}")
@@ -53,8 +56,8 @@ def highlight_pattern(image, location):
     return image  # Return the modified image
 
 def save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk):
-    if nodisk == False:
-        filename = os.path.join(screenshot_logs_dir, "latest_screenshot.png")
+    if not nodisk:
+        filename = os.path.join(script_dir, screenshot_logs_dir, "latest_screenshot.png")
         screenshot.save(filename)
         if verbose:
             print("Latest screenshot saved as latest_screenshot.png")
@@ -76,7 +79,7 @@ def main(screen_x_range, screen_y_range, alert_images, verbose, nodisk, frequenc
     sounds = load_sounds(alert_images)
 
     # Create screenshot_logs directory if it doesn't exist
-    screenshot_logs_dir = "screenshot_logs"
+    screenshot_logs_dir = os.path.join(script_dir, "screenshot_logs")
     if not os.path.exists(screenshot_logs_dir):
         os.makedirs(screenshot_logs_dir)
     else:

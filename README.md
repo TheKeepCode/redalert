@@ -2,6 +2,10 @@
 
 This Python3 script should be run on your Windows computer in a separate offscreen terminal while playing the game.  It will alert you if there is a "Bad" or "Terrible" player on your screen both audibly and via text output via the terminal.
 
+## Changelog
+
+### Version 0.0.1
+* Fixes directory structure so Python3 doesn't need to be run in the same directory as the script itself.  It will load screenshot directory and reference files from where it lives and not where it's being run from.
 
 ## Screenshot Parameters and Tips
 
