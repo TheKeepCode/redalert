@@ -23,7 +23,7 @@ You should set your screen parameters (--screenx and --screeny) to your Local wi
 ## Set Up - Run These Once
 
 1. Install the latest version of Python3 from Microsoft Store: https://apps.microsoft.com/search/publisher?name=Python+Software+Foundation&hl=en-us&gl=US
- * This script has been tested with Python3.12
+(This script has been tested with Python3.12)
 2. Open PowerShell
 3. Copy and paste the following, then press Enter: `pip3 install pyautogui`
 4. Copy and paste the following, then press Enter: `pip3 install pygame`

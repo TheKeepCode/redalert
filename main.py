@@ -4,7 +4,7 @@ import time
 import argparse
 import datetime
 import numpy as np
-from PIL import Image, ImageDraw, ImageGrab
+from PIL import Image, ImageDraw
 import os
 import mss
 
