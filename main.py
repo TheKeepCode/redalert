@@ -19,6 +19,10 @@ modified_screenshots = []
 screenshot_counter = 0
 detected_counter = 0
 
+def log_message(message):
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    print(f"[{timestamp}] {message}")
+
 def is_pattern_present(pattern_image, screenshot):
     try:
         location = pyautogui.locate(pattern_image, screenshot)
@@ -91,7 +95,7 @@ def main(screen_x_range, screen_y_range, alert_images, verbose, nodisk, frequenc
                 if os.path.isfile(file_path):
                     os.unlink(file_path)
             except Exception as e:
-                print(f"Error deleting {file_path}: {e}")
+                log_message(f"Error deleting {file_path}: {e}")
 
     try:
         with mss.mss() as sct:
@@ -111,7 +115,7 @@ def main(screen_x_range, screen_y_range, alert_images, verbose, nodisk, frequenc
                 start_y = max(min(start_y, monitor_end_y - 1), monitor_start_y)
                 end_y = max(min(end_y, monitor_end_y), monitor_start_y + 1)
 
-                print(f"Capturing screenshots from monitor {monitor_num} - X: {start_x}-{end_x}, Y: {start_y}-{end_y}")
+                log_message(f"Capturing screenshots from monitor {monitor_num} - X: {start_x}-{end_x}, Y: {start_y}-{end_y}")
 
                 while True:
                     detected = False
@@ -133,28 +137,28 @@ def main(screen_x_range, screen_y_range, alert_images, verbose, nodisk, frequenc
                             if detected_counter > 1:
                                 sound_file = sounds[alert_image]
                                 pygame.mixer.Sound(sound_file).play()
-                                print(f"Pattern {alert_image} detected! Sound played.")
+                                log_message(f"Pattern {alert_image} detected! Sound played.")
                                 time.sleep(1.5)
                                 break
                             else:
-                                print(f"Pattern {alert_image} detected, below detected_counter threshold, so no sound played.")
+                                log_message(f"Pattern {alert_image} detected, below detected_counter threshold, so no sound played.")
 
                     if detected:
                         detected_counter += 1
                         if verbose:
-                            print(f"Detected Counter at {detected_counter} since pattern was detected.")
+                            log_message(f"Detected Counter at {detected_counter} since pattern was detected.")
                         if detected_counter > 20:
                             detected_counter = 5
                     else:
                         detected_counter = 0
                         if verbose:
-                            print(f"Detected Counter at {detected_counter} since pattern was not detected.")
+                            log_message(f"Detected Counter at {detected_counter} since pattern was not detected.")
 
                     save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk)
                     time.sleep(frequency)
 
     except KeyboardInterrupt:
-        print("\nScript stopped.")
+        log_message("\nScript stopped.")
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Search for patterns on the screen and play sounds when detected.")
