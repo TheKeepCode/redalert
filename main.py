@@ -7,6 +7,7 @@ import numpy as np
 from PIL import Image, ImageDraw
 import os
 import mss
+import pytesseract
 
 # Get the directory path of the script
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -20,15 +21,15 @@ screenshot_counter = 0
 detected_counter = 0
 
 def log_message(message):
-    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-1]
     print(f"[{timestamp}] {message}")
 
 def is_pattern_present(pattern_image, screenshot):
     try:
-        location = pyautogui.locate(pattern_image, screenshot)
-        return location is not None
+        location = pyautogui.locate(pattern_image, screenshot, confidence=0.99)
+        return location  # Return the location object directly
     except pyautogui.ImageNotFoundException:
-        return False
+        return None
 
 def load_sounds(alert_images):
     sounds = {}
@@ -59,12 +60,66 @@ def highlight_pattern(image, location):
     draw.rectangle(expanded_location, outline=(255, 255, 0), width=2)  # Bright yellow rectangle
     return image  # Return the modified image
 
-def save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk):
+def save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk, ocr):
     if not nodisk:
-        filename = os.path.join(script_dir, screenshot_logs_dir, "latest_screenshot.png")
-        screenshot.save(filename)
+        filename_original = os.path.join(script_dir, screenshot_logs_dir, "latest_screenshot_original.png")
+        filename_preprocessed = os.path.join(script_dir, screenshot_logs_dir, "latest_screenshot_preprocessed.png")
+        
+        screenshot.save(filename_original)
+        
+        if ocr:
+            # Save preprocessed version of the image
+            gray_image = screenshot.convert("L")
+            inverted_image = Image.fromarray(255 - np.array(gray_image))
+            thresholded_image = inverted_image.point(lambda p: p > 128 and 255)
+            thresholded_image.save(filename_preprocessed)
 
-def main(screen_x_range, screen_y_range, alert_images, verbose, nodisk, frequency):
+def extract_text_to_right(screenshot, location, screenshot_logs_dir):
+    # Expand the vertical bounds by 2 pixels up and down
+    expanded_top = max(0, location.top - 2)
+    expanded_bottom = min(screenshot.height, location.top + location.height + 3)
+
+    # Define the expanded region to the right of the detected pattern
+    text_region = (
+        location.left + location.width,
+        expanded_top,
+        screenshot.width - (location.left + location.width),
+        expanded_bottom - expanded_top
+    )
+
+    # Crop the text region from the screenshot
+    cropped_text_image = screenshot.crop((
+        text_region[0],
+        text_region[1],
+        text_region[0] + text_region[2],
+        text_region[1] + text_region[3]
+    ))
+
+    # Convert to grayscale
+    gray_image = cropped_text_image.convert("L")
+
+    # Invert colors
+    inverted_image = Image.fromarray(255 - np.array(gray_image))
+
+    # Apply binary thresholding
+    thresholded_image = inverted_image.point(lambda p: p > 128 and 255)
+
+    # Save the preprocessed image in the screenshot_logs_dir
+    preprocessed_image_path = os.path.join(script_dir, screenshot_logs_dir, "preprocessed_image.png")
+    thresholded_image.save(preprocessed_image_path)
+
+    # Perform OCR with improved configuration for space detection
+    custom_config = (
+        "--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 "
+        "-c tessedit_char_blacklist='\"!@#$%^&*()[]{}<>;:|`~'"
+        "-c tessedit_write_unlv=1"
+        "-c textord_min_space=1"
+    )
+    text = pytesseract.image_to_string(thresholded_image, config=custom_config)
+
+    return text.strip()
+
+def main(screen_x_range, screen_y_range, alert_images, verbose, nodisk, ocr, frequency):
     global detected_counter, screenshot_counter, screenshot_logs_dir  # Declare global variables
 
     # Get the directory path of the script
@@ -128,20 +183,26 @@ def main(screen_x_range, screen_y_range, alert_images, verbose, nodisk, frequenc
 
                     # Check for consecutive detections
                     for alert_image in alert_images:
-                        if is_pattern_present(alert_image, screenshot):
+                        location = is_pattern_present(alert_image, screenshot)
+                        if location:
                             detected = True
-                            location = pyautogui.locate(alert_image, screenshot, confidence=0.99)
                             screenshot_modified = highlight_pattern(screenshot.copy(), location)
                             save_screenshot_with_timestamp(screenshot_modified, alert_image, screenshot_logs_dir, nodisk)
+
+                            if ocr:
+                                extracted_text = extract_text_to_right(screenshot, location, screenshot_logs_dir)
+                                log_message(f"Pattern {alert_image} detected! Offending player's name (experimental): {extracted_text}")
+                            else:
+                                log_message(f"Pattern {alert_image} detected!")
 
                             if detected_counter > 1:
                                 sound_file = sounds[alert_image]
                                 pygame.mixer.Sound(sound_file).play()
-                                log_message(f"Pattern {alert_image} detected! Sound played.")
+                                log_message(f"Sound played.")
                                 time.sleep(1.5)
                                 break
                             else:
-                                log_message(f"Pattern {alert_image} detected, below detected_counter threshold, so no sound played.")
+                                log_message(f"Below detected_counter threshold, so no sound played.")
 
                     if detected:
                         detected_counter += 1
@@ -154,7 +215,7 @@ def main(screen_x_range, screen_y_range, alert_images, verbose, nodisk, frequenc
                         if verbose:
                             log_message(f"Detected Counter at {detected_counter} since pattern was not detected.")
 
-                    save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk)
+                    save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk, ocr)
                     time.sleep(frequency)
 
     except KeyboardInterrupt:
@@ -167,6 +228,7 @@ def parse_arguments():
     parser.add_argument("--alertimages", default="terrible.png", nargs="+", help="Filenames of alert images")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose mode to print additional messages")
     parser.add_argument("--nodisk", action="store_true", help="Disables storing screenshots to the disk")
+    parser.add_argument("--ocr", action="store_true", help="Enables experimental feature to read the name in Local chat (using Compact Member List)")
     parser.add_argument("--frequency", type=float, default=0.5, help="Frequency of taking screenshots in seconds")
     return parser.parse_args()
 
@@ -174,4 +236,4 @@ if __name__ == "__main__":
     args = parse_arguments()
     verbose = args.verbose  # Store the value of verbose for later use
     nodisk = args.nodisk  # Store the value of nodisk for later use
-    main(args.screenx, args.screeny, args.alertimages, args.verbose, args.nodisk, args.frequency)
+    main(args.screenx, args.screeny, args.alertimages, args.verbose, args.nodisk, args.ocr, args.frequency)
