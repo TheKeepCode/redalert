@@ -24,12 +24,21 @@ You should set your screen parameters (--screenx and --screeny) to your Local wi
 
 1. Install the latest version of Python3 from Microsoft Store: https://apps.microsoft.com/search/publisher?name=Python+Software+Foundation&hl=en-us&gl=US
 (This script has been tested with Python3.12)
-2. Open PowerShell
-3. Copy and paste the following, then press Enter: `pip3 install pyautogui`
-4. Copy and paste the following, then press Enter: `pip3 install pygame`
-5. Copy and paste the following, then press Enter: `pip3 install numpy`
-6. Copy and paste the following, then press Enter: `pip3 install Pillow`
-7. Copy and paste the following, then press Enter: `pip3 install mss`
+2. Install Tesseract: https://github.com/UB-Mannheim/tesseract/wiki
+3. Add Tesseract to the System PATH
+  a. Open the Start Menu and search for Environment Variables
+  b. Select Edit the system environment variables from the results
+  c. In the System Properties window, click the Environment Variables button
+  d. In the Environment Variables window, Under System variables, find and select the Path variable, then click Edit
+  e. Click New and paste the path to the Tesseract installation folder: C:\Program Files\Tesseract-OCR\
+  f. Click OK to close each window.
+3. Open PowerShell
+4. Copy and paste the following, then press Enter: `pip3 install pyautogui`
+5. Copy and paste the following, then press Enter: `pip3 install pygame`
+6. Copy and paste the following, then press Enter: `pip3 install numpy`
+7. Copy and paste the following, then press Enter: `pip3 install Pillow`
+8. Copy and paste the following, then press Enter: `pip3 install mss`
+9. Copy and paste the following, then press Enter: `pip3 install pytesseract`
 
 
 ## Normal Usage
@@ -45,3 +54,7 @@ You should set your screen parameters (--screenx and --screeny) to your Local wi
 * The function `pyautogui.locate` does not see colors, so "Bad" and "Terrible" will both alarm
 * The images that are included with this script called "terrible.png" and "neutral.png" may not work if you have changed how these appear in your game client - overwrite or include new images as you deem appropriate
 * This script must be run from the same working directory - it must be `python3 main.py --options args` and not `python3 C:\Users\Desktop\etc\main.py --options args`
+* The optional OCR feature has a few severe limitations at this time:
+** It only works in Local chat if "Show Compact Member List" is enabled
+** It only reports on the first name that matches the condition (usually the first name in the list that's a Red or Neut)
+** It usually gets the name correct but is terrible when trying to figure out spaces (i.e. Player named "Mr T" will likely show up as "MrT")
