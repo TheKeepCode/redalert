@@ -4,12 +4,16 @@ This Python3 script should be run on your Windows computer in a separate offscre
 
 ## Changelog
 
+### Version 0.0.2
+* OCR experimental feature added
+* Added default icons for Overview
+
 ### Version 0.0.1
 * Multi-monitor support added
 
 ## Screenshot Parameters and Tips
 
-This script works by frequently taking a screenshot of an area of your monitor that you define (via screenx and screeny parameters) and it compares it against one or more image patterns that you define (via alertimages parameter).  This script comes with two files, one called "terrible.png" and another called "neutral.png" to help you get started.  If this script sees a match of what's on your screen against the images you tell it to look for, it will make a sound and output some text in your PowerShell window.
+This script works by frequently taking a screenshot of an area of your monitor that you define (via screenx and screeny parameters) and it compares it against one or more image patterns that you define (via alertimages parameter).  This script comes with a few image files to help you get started.  If this script sees a match of what's on your screen against the images you tell it to look for, it will make a sound and output some text in your PowerShell window.
 
 The screenx parameter is the X-coordinate of your screenshot, where the first number is the starting position and the second number is your ending position.  So, if you define `--screenx 100,500`, it will take screenshots from the 100th pixel from the left, all the way to the 500th pixed from the left, for a total of 400 pixels wide.
 
