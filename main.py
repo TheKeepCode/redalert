@@ -8,6 +8,7 @@ from PIL import Image, ImageDraw
 import os
 import mss
 import pytesseract
+import pyscreeze
 
 # Get the directory path of the script
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -24,12 +25,12 @@ def log_message(message):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-1]
     print(f"[{timestamp}] {message}")
 
-def is_pattern_present(pattern_image, screenshot):
+def find_all_patterns(pattern_image, screenshot, confidence_threshold=0.99):
     try:
-        location = pyautogui.locate(pattern_image, screenshot, confidence=0.99)
-        return location  # Return the location object directly
-    except pyautogui.ImageNotFoundException:
-        return None
+        locations = list(pyautogui.locateAll(pattern_image, screenshot, confidence=confidence_threshold))
+        return locations  # If found, return locations
+    except pyscreeze.ImageNotFoundException:
+        return []  # Instead of crashing, return an empty list
 
 def load_sounds(alert_images):
     sounds = {}
@@ -51,7 +52,7 @@ def save_screenshot_with_timestamp(screenshot, alert_image, screenshot_logs_dir,
 
 def highlight_pattern(image, location):
     overlay = np.array(image)
-    border_width = 12  # Set border width to 12
+    border_width = 8
     expanded_location = (
         (location.left - border_width, location.top - border_width),
         (location.left + location.width + border_width, location.top + location.height + border_width)
@@ -119,7 +120,7 @@ def extract_text_to_right(screenshot, location, screenshot_logs_dir):
 
     return text.strip()
 
-def main(screen_x_range, screen_y_range, alert_images, verbose, nodisk, ocr, frequency):
+def main(screen_x_range, screen_y_range, alert_images, verbose, nodisk, ocr, frequency, match_threshold):
     global detected_counter, screenshot_counter, screenshot_logs_dir  # Declare global variables
 
     # Get the directory path of the script
@@ -182,44 +183,50 @@ def main(screen_x_range, screen_y_range, alert_images, verbose, nodisk, ocr, fre
                     screenshot = Image.frombytes("RGB", screenshot.size, screenshot.bgra, "raw", "BGRX")
 
                     # Check for consecutive detections
+                    num_matches = 0
                     for alert_image in alert_images:
-                        location = is_pattern_present(alert_image, screenshot)
-                        if location:
+                        locations = find_all_patterns(alert_image, screenshot)
+                        for location in locations:
                             detected = True
+                            num_matches += 1
                             screenshot_modified = highlight_pattern(screenshot.copy(), location)
                             save_screenshot_with_timestamp(screenshot_modified, alert_image, screenshot_logs_dir, nodisk)
 
                             if ocr:
                                 extracted_text = extract_text_to_right(screenshot, location, screenshot_logs_dir)
-                                log_message(f"Pattern {alert_image} detected! Offending player's name (experimental): {extracted_text}")
+                                log_message(f"INFO - Pattern {alert_image} detected! Offending player's name (experimental): {extracted_text}")
                             else:
-                                log_message(f"Pattern {alert_image} detected!")
-
-                            if detected_counter > 1:
-                                sound_file = sounds[alert_image]
-                                pygame.mixer.Sound(sound_file).play()
-                                log_message(f"Sound played.")
-                                time.sleep(1.5)
-                                break
-                            else:
-                                log_message(f"Below detected_counter threshold, so no sound played.")
+                                if verbose:
+                                    log_message(f"DEBUG - Pattern {alert_image} detected!")
 
                     if detected:
                         detected_counter += 1
                         if verbose:
-                            log_message(f"Detected Counter at {detected_counter} since pattern was detected.")
-                        if detected_counter > 20:
-                            detected_counter = 5
+                            if detected_counter >= 20:
+                                detected_counter = 19
+                                log_message(f"DEBUG - Detected Counter at 20+ since pattern was detected.")
+                            else:
+                                log_message(f"DEBUG - Detected Counter at {detected_counter} since pattern was detected.")
                     else:
                         detected_counter = 0
                         if verbose:
-                            log_message(f"Detected Counter at {detected_counter} since pattern was not detected.")
+                            log_message(f"DEBUG - Detected Counter at {detected_counter} since pattern was not detected.")
+
+                    if detected_counter > 1:
+                        if num_matches >= match_threshold:
+                            sound_file = sounds[alert_image]
+                            pygame.mixer.Sound(sound_file).play()
+                            log_message(f"INFO - Sound played - Detected {num_matches} time(s), at or above Match Threshold: {match_threshold}.")
+                            time.sleep(frequency + 1)
+                        elif num_matches > 0:
+                            if verbose:
+                                log_message(f"DEBUG - No Sound Played - Detected {num_matches} time(s), but below Match Threshold: {match_threshold}.")
 
                     save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk, ocr)
                     time.sleep(frequency)
 
     except KeyboardInterrupt:
-        log_message("\nScript stopped.")
+        log_message("\nWARNING - Script stopped.")
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Search for patterns on the screen and play sounds when detected.")
@@ -230,10 +237,11 @@ def parse_arguments():
     parser.add_argument("--nodisk", action="store_true", help="Disables storing screenshots to the disk")
     parser.add_argument("--ocr", action="store_true", help="Enables experimental feature to read the name in Local chat (using Compact Member List)")
     parser.add_argument("--frequency", type=float, default=0.5, help="Frequency of taking screenshots in seconds")
+    parser.add_argument("--match_threshold", type=int, default=1, help="Number of matches required to trigger alert")
     return parser.parse_args()
 
 if __name__ == "__main__":
     args = parse_arguments()
     verbose = args.verbose  # Store the value of verbose for later use
     nodisk = args.nodisk  # Store the value of nodisk for later use
-    main(args.screenx, args.screeny, args.alertimages, args.verbose, args.nodisk, args.ocr, args.frequency)
+    main(args.screenx, args.screeny, args.alertimages, args.verbose, args.nodisk, args.ocr, args.frequency, args.match_threshold)

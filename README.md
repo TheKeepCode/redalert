@@ -4,6 +4,9 @@ This Python3 script should be run on your Windows computer in a separate offscre
 
 ## Changelog
 
+### Version 0.0.3
+* Match Threshold introduced
+
 ### Version 0.0.2
 * OCR experimental feature added
 * Added default icons for Overview
@@ -13,7 +16,7 @@ This Python3 script should be run on your Windows computer in a separate offscre
 
 ## Screenshot Parameters and Tips
 
-This script works by frequently taking a screenshot of an area of your monitor that you define (via screenx and screeny parameters) and it compares it against one or more image patterns that you define (via alertimages parameter).  This script comes with a few image files to help you get started.  If this script sees a match of what's on your screen against the images you tell it to look for, it will make a sound and output some text in your PowerShell window.
+This script works by frequently taking a screenshot of an area of your monitor that you define (via screenx and screeny parameters) and it compares it against one or more image patterns that you define (via alertimages parameter).  This script comes with a few image files to help you get started.  If this script sees a match of what's on your screen against the images you tell it to look for, it will make a sound and output some text in your PowerShell window.  You can further refine this by alerting on a minimum number of matches by using the `--match_threshold #` argument.
 
 The screenx parameter is the X-coordinate of your screenshot, where the first number is the starting position and the second number is your ending position.  So, if you define `--screenx 100,500`, it will take screenshots from the 100th pixel from the left, all the way to the 500th pixed from the left, for a total of 400 pixels wide.
 
@@ -43,6 +46,7 @@ You should set your screen parameters (--screenx and --screeny) to your Local wi
 7. Copy and paste the following, then press Enter: `pip3 install Pillow`
 8. Copy and paste the following, then press Enter: `pip3 install mss`
 9. Copy and paste the following, then press Enter: `pip3 install pytesseract`
+10. Copy and paste the following, then press Enter: `pip3 install pyscreeze`
 
 
 ## Normal Usage
@@ -62,3 +66,4 @@ You should set your screen parameters (--screenx and --screeny) to your Local wi
 ** It only works in Local chat if "Show Compact Member List" is enabled
 ** It only reports on the first name that matches the condition (usually the first name in the list that's a Red or Neut)
 ** It usually gets the name correct but is terrible when trying to figure out spaces (i.e. Player named "Mr T" will likely show up as "MrT")
+** It is very slow (multiple seconds) to report many names if Local spikes
