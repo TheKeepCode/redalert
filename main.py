@@ -7,7 +7,6 @@ import numpy as np
 from PIL import Image, ImageDraw
 import os
 import mss
-import pytesseract
 import pyscreeze
 
 # Get the directory path of the script
@@ -61,67 +60,19 @@ def highlight_pattern(image, location):
     draw.rectangle(expanded_location, outline=(255, 255, 0), width=2)  # Bright yellow rectangle
     return image  # Return the modified image
 
-def save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk, ocr):
+def save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk):
     if not nodisk:
         filename_original = os.path.join(script_dir, screenshot_logs_dir, "latest_screenshot_original.png")
-        filename_preprocessed = os.path.join(script_dir, screenshot_logs_dir, "latest_screenshot_preprocessed.png")
-        
         screenshot.save(filename_original)
-        
-        if ocr:
-            # Save preprocessed version of the image
-            gray_image = screenshot.convert("L")
-            inverted_image = Image.fromarray(255 - np.array(gray_image))
-            thresholded_image = inverted_image.point(lambda p: p > 128 and 255)
-            thresholded_image.save(filename_preprocessed)
 
-def extract_text_to_right(screenshot, location, screenshot_logs_dir):
-    # Expand the vertical bounds by 2 pixels up and down
-    expanded_top = max(0, location.top - 2)
-    expanded_bottom = min(screenshot.height, location.top + location.height + 3)
-
-    # Define the expanded region to the right of the detected pattern
-    text_region = (
-        location.left + location.width,
-        expanded_top,
-        screenshot.width - (location.left + location.width),
-        expanded_bottom - expanded_top
-    )
-
-    # Crop the text region from the screenshot
-    cropped_text_image = screenshot.crop((
-        text_region[0],
-        text_region[1],
-        text_region[0] + text_region[2],
-        text_region[1] + text_region[3]
-    ))
-
-    # Convert to grayscale
-    gray_image = cropped_text_image.convert("L")
-
-    # Invert colors
-    inverted_image = Image.fromarray(255 - np.array(gray_image))
-
-    # Apply binary thresholding
-    thresholded_image = inverted_image.point(lambda p: p > 128 and 255)
-
-    # Save the preprocessed image in the screenshot_logs_dir
-    preprocessed_image_path = os.path.join(script_dir, screenshot_logs_dir, "preprocessed_image.png")
-    thresholded_image.save(preprocessed_image_path)
-
-    # Perform OCR with improved configuration for space detection
-    custom_config = (
-        "--psm 7 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 "
-        "-c tessedit_char_blacklist='\"!@#$%^&*()[]{}<>;:|`~'"
-        "-c tessedit_write_unlv=1"
-        "-c textord_min_space=1"
-    )
-    text = pytesseract.image_to_string(thresholded_image, config=custom_config)
-
-    return text.strip()
-
-def main(screen_x_range, screen_y_range, alert_images, loglevel, nodisk, alerttype, ocr, frequency, match_threshold):
+def main(screen_x_range, screen_y_range, alert_images, loglevel, nodisk, frequency, a_threshold, v_threshold, sensitivity):
     global detected_counter, screenshot_counter, screenshot_logs_dir  # Declare global variables
+
+    # Set the default color of the terminal
+    os.system("color 0F")
+
+    # Define minimum threshold
+    match_threshold = min(a_threshold, v_threshold)
 
     # Get the directory path of the script
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -191,14 +142,8 @@ def main(screen_x_range, screen_y_range, alert_images, loglevel, nodisk, alertty
                             num_matches += 1
                             screenshot_modified = highlight_pattern(screenshot.copy(), location)
                             save_screenshot_with_timestamp(screenshot_modified, alert_image, screenshot_logs_dir, nodisk)
-
-                            if ocr:
-                                extracted_text = extract_text_to_right(screenshot, location, screenshot_logs_dir)
-                                if loglevel >= 1:
-                                    log_message(f"INFO - Pattern {alert_image} detected! Offending player's name (experimental): {extracted_text}")
-                            else:
-                                if loglevel >= 2:
-                                    log_message(f"DEBUG - Pattern {alert_image} detected!")
+                            if loglevel >= 2:
+                                log_message(f"DEBUG - Pattern {alert_image} detected!")
 
                     if detected:
                         detected_counter += 1
@@ -213,22 +158,23 @@ def main(screen_x_range, screen_y_range, alert_images, loglevel, nodisk, alertty
                         if loglevel >= 2:
                             log_message(f"DEBUG - Detected Counter at {detected_counter} since pattern was not detected.")
 
-                    if detected_counter > 1:
+                    if detected_counter > sensitivity:
                         if num_matches >= match_threshold:
-                            sound_file = sounds[alert_image]
-                            if "a" in alerttype:
+                            if num_matches >= a_threshold:
+                                sound_file = sounds[alert_image]
                                 pygame.mixer.Sound(sound_file).play()
-                            if "v" in alerttype:
+                            if num_matches >= v_threshold:
                                 os.system("color E0")
                             if loglevel >= 1:
                                 log_message(f"INFO - Alerted - Detected {num_matches} time(s), at or above Match Threshold: {match_threshold}.")
-                            time.sleep(frequency + 1)
-                            os.system("color")
+                            time.sleep(frequency)
+                            os.system("color 0F")
+                            time.sleep(1)
                         elif num_matches > 0:
                             if loglevel >= 2:
                                 log_message(f"DEBUG - No Alert - Detected {num_matches} time(s), but below Match Threshold: {match_threshold}.")
 
-                    save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk, ocr)
+                    save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk)
                     time.sleep(frequency)
 
     except KeyboardInterrupt:
@@ -239,17 +185,18 @@ def parse_arguments():
     parser.add_argument("--screenx", type=str, default="0,1920", help="Screen region for x dimension (start,end)")
     parser.add_argument("--screeny", type=str, default="0,1080", help="Screen region for y dimension (start,end)")
     parser.add_argument("--alertimages", default="terrible.png", nargs="+", help="Filenames of alert images")
-    parser.add_argument("--alerttype", type=str, default="a", help="Type of alert: 'a' for audible (default), 'v' for visual, 'av' for both audible and visual")
     parser.add_argument("--loglevel", type=int, default=1, help="Level of Logging: '0' for none, '1' for standard (default), '2' for verbose")
     parser.add_argument("--nodisk", action="store_true", help="Disables storing screenshots to the disk")
-    parser.add_argument("--ocr", action="store_true", help="Enables experimental feature to read the name in Local chat (using Compact Member List)")
     parser.add_argument("--frequency", type=float, default=0.5, help="Frequency of taking screenshots in seconds")
-    parser.add_argument("--match_threshold", type=int, default=1, help="Number of matches required to trigger alert")
+    parser.add_argument("--a_threshold", type=int, default=1, help="Number of matches required to trigger audible alert ('0' disables the alert)")
+    parser.add_argument("--v_threshold", type=int, default=1, help="Number of matches required to trigger visual alert ('0' disables the alert)")
+    parser.add_argument("--sensitivity", type=int, default=2, help="Larger value helps filter out false positives")
     return parser.parse_args()
 
 if __name__ == "__main__":
     args = parse_arguments()
-    loglevel = args.loglevel  # Store the value of loglevel for later use
-    nodisk = args.nodisk  # Store the value of nodisk for later use
-    alerttype = args.alerttype  # Store the value of alerttype for later use
-    main(args.screenx, args.screeny, args.alertimages, args.loglevel, args.nodisk, args.alerttype, args.ocr, args.frequency, args.match_threshold)
+    a_threshold = args.a_threshold
+    v_threshold = args.v_threshold
+    if a_threshold <= 0: a_threshold = 9999
+    if v_threshold <= 0: v_threshold = 9999
+    main(args.screenx, args.screeny, args.alertimages, args.loglevel, args.nodisk, args.frequency, args.a_threshold, args.v_threshold, args.sensitivity)
