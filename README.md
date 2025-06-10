@@ -4,6 +4,10 @@ This Python3 script should be run on your Windows computer in a separate offscre
 
 ## Changelog
 
+### Version 0.0.4
+* Visual Warning introduced
+* Audio Warning now optional
+
 ### Version 0.0.3
 * Match Threshold introduced
 

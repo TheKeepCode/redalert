@@ -120,7 +120,7 @@ def extract_text_to_right(screenshot, location, screenshot_logs_dir):
 
     return text.strip()
 
-def main(screen_x_range, screen_y_range, alert_images, verbose, nodisk, ocr, frequency, match_threshold):
+def main(screen_x_range, screen_y_range, alert_images, loglevel, nodisk, alerttype, ocr, frequency, match_threshold):
     global detected_counter, screenshot_counter, screenshot_logs_dir  # Declare global variables
 
     # Get the directory path of the script
@@ -194,14 +194,15 @@ def main(screen_x_range, screen_y_range, alert_images, verbose, nodisk, ocr, fre
 
                             if ocr:
                                 extracted_text = extract_text_to_right(screenshot, location, screenshot_logs_dir)
-                                log_message(f"INFO - Pattern {alert_image} detected! Offending player's name (experimental): {extracted_text}")
+                                if loglevel >= 1:
+                                    log_message(f"INFO - Pattern {alert_image} detected! Offending player's name (experimental): {extracted_text}")
                             else:
-                                if verbose:
+                                if loglevel >= 2:
                                     log_message(f"DEBUG - Pattern {alert_image} detected!")
 
                     if detected:
                         detected_counter += 1
-                        if verbose:
+                        if loglevel >= 2:
                             if detected_counter >= 20:
                                 detected_counter = 19
                                 log_message(f"DEBUG - Detected Counter at 20+ since pattern was detected.")
@@ -209,18 +210,23 @@ def main(screen_x_range, screen_y_range, alert_images, verbose, nodisk, ocr, fre
                                 log_message(f"DEBUG - Detected Counter at {detected_counter} since pattern was detected.")
                     else:
                         detected_counter = 0
-                        if verbose:
+                        if loglevel >= 2:
                             log_message(f"DEBUG - Detected Counter at {detected_counter} since pattern was not detected.")
 
                     if detected_counter > 1:
                         if num_matches >= match_threshold:
                             sound_file = sounds[alert_image]
-                            pygame.mixer.Sound(sound_file).play()
-                            log_message(f"INFO - Sound played - Detected {num_matches} time(s), at or above Match Threshold: {match_threshold}.")
+                            if "a" in alerttype:
+                                pygame.mixer.Sound(sound_file).play()
+                            if "v" in alerttype:
+                                os.system("color E0")
+                            if loglevel >= 1:
+                                log_message(f"INFO - Alerted - Detected {num_matches} time(s), at or above Match Threshold: {match_threshold}.")
                             time.sleep(frequency + 1)
+                            os.system("color")
                         elif num_matches > 0:
-                            if verbose:
-                                log_message(f"DEBUG - No Sound Played - Detected {num_matches} time(s), but below Match Threshold: {match_threshold}.")
+                            if loglevel >= 2:
+                                log_message(f"DEBUG - No Alert - Detected {num_matches} time(s), but below Match Threshold: {match_threshold}.")
 
                     save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk, ocr)
                     time.sleep(frequency)
@@ -233,7 +239,8 @@ def parse_arguments():
     parser.add_argument("--screenx", type=str, default="0,1920", help="Screen region for x dimension (start,end)")
     parser.add_argument("--screeny", type=str, default="0,1080", help="Screen region for y dimension (start,end)")
     parser.add_argument("--alertimages", default="terrible.png", nargs="+", help="Filenames of alert images")
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose mode to print additional messages")
+    parser.add_argument("--alerttype", type=str, default="a", help="Type of alert: 'a' for audible (default), 'v' for visual, 'av' for both audible and visual")
+    parser.add_argument("--loglevel", type=int, default=1, help="Level of Logging: '0' for none, '1' for standard (default), '2' for verbose")
     parser.add_argument("--nodisk", action="store_true", help="Disables storing screenshots to the disk")
     parser.add_argument("--ocr", action="store_true", help="Enables experimental feature to read the name in Local chat (using Compact Member List)")
     parser.add_argument("--frequency", type=float, default=0.5, help="Frequency of taking screenshots in seconds")
@@ -242,6 +249,7 @@ def parse_arguments():
 
 if __name__ == "__main__":
     args = parse_arguments()
-    verbose = args.verbose  # Store the value of verbose for later use
+    loglevel = args.loglevel  # Store the value of loglevel for later use
     nodisk = args.nodisk  # Store the value of nodisk for later use
-    main(args.screenx, args.screeny, args.alertimages, args.verbose, args.nodisk, args.ocr, args.frequency, args.match_threshold)
+    alerttype = args.alerttype  # Store the value of alerttype for later use
+    main(args.screenx, args.screeny, args.alertimages, args.loglevel, args.nodisk, args.alerttype, args.ocr, args.frequency, args.match_threshold)
