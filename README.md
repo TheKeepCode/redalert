@@ -2,6 +2,7 @@
 
 This Python3 script should be run on your Windows computer in a separate offscreen terminal while playing the game.  It will alert you if there is a "Bad" or "Terrible" player on your screen both audibly and via text output via the terminal.
 
+
 ## Changelog
 
 ### Version 0.1.0
@@ -24,6 +25,7 @@ This Python3 script should be run on your Windows computer in a separate offscre
 ### Version 0.0.1
 * Initial Version
 
+
 ## Screenshot Parameters and Tips
 
 This script works by frequently taking a screenshot of an area of your monitor that you define (via screenx and screeny parameters) and it compares it against one or more image patterns that you define (via alertimages parameter).  This script comes with a few image files to help you get started.  If this script sees a match of what's on your screen against the images you tell it to look for, it will make a sound or flash the screen yellow (depending on preference) and output some text in your PowerShell window.  You can further refine this by alerting on a minimum number of matches by using the `--a_threshold #` and/or `--v_threshold #` arguments.
@@ -41,21 +43,13 @@ You should set your screen parameters (--screenx and --screeny) to your Local wi
 
 1. Install the latest version of Python3 from Microsoft Store: https://apps.microsoft.com/search/publisher?name=Python+Software+Foundation&hl=en-us&gl=US
 (This script has been tested with Python3.12)
-2. Install Tesseract: https://github.com/UB-Mannheim/tesseract/wiki
-3. Add Tesseract to the System PATH
-  a. Open the Start Menu and search for Environment Variables
-  b. Select Edit the system environment variables from the results
-  c. In the System Properties window, click the Environment Variables button
-  d. In the Environment Variables window, Under System variables, find and select the Path variable, then click Edit
-  e. Click New and paste the path to the Tesseract installation folder: C:\Program Files\Tesseract-OCR\
-  f. Click OK to close each window.
-3. Open PowerShell
-4. Copy and paste the following, then press Enter: `pip3 install pyautogui`
-5. Copy and paste the following, then press Enter: `pip3 install pygame`
-6. Copy and paste the following, then press Enter: `pip3 install numpy`
-7. Copy and paste the following, then press Enter: `pip3 install Pillow`
-8. Copy and paste the following, then press Enter: `pip3 install mss`
-9. Copy and paste the following, then press Enter: `pip3 install pyscreeze`
+2. Open PowerShell
+3. Copy and paste the following, then press Enter: `pip3 install pyautogui`
+4. Copy and paste the following, then press Enter: `pip3 install pygame`
+5. Copy and paste the following, then press Enter: `pip3 install numpy`
+6. Copy and paste the following, then press Enter: `pip3 install Pillow`
+7. Copy and paste the following, then press Enter: `pip3 install mss`
+8. Copy and paste the following, then press Enter: `pip3 install pyscreeze`
 
 
 ## Normal Usage
