@@ -50,6 +50,7 @@ You should set your screen parameters (--screenx and --screeny) to your Local wi
 6. Copy and paste the following, then press Enter: `pip3 install Pillow`
 7. Copy and paste the following, then press Enter: `pip3 install mss`
 8. Copy and paste the following, then press Enter: `pip3 install pyscreeze`
+9. Copy and paste the following, then press Enter: `pip3 install opencv-python`
 
 
 ## Normal Usage
