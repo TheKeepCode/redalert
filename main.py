@@ -199,4 +199,4 @@ if __name__ == "__main__":
     v_threshold = args.v_threshold
     if a_threshold <= 0: a_threshold = 9999
     if v_threshold <= 0: v_threshold = 9999
-    main(args.screenx, args.screeny, args.alertimages, args.loglevel, args.nodisk, args.frequency, args.a_threshold, args.v_threshold, args.sensitivity)
+    main(args.screenx, args.screeny, args.alertimages, args.loglevel, args.nodisk, args.frequency, a_threshold, v_threshold, args.sensitivity)

@@ -5,6 +5,9 @@ This Python3 script should be run on your Windows computer in a separate offscre
 
 ## Changelog
 
+### Version 0.1.1
+* Minor bugfix to threshold values
+
 ### Version 0.1.0
 * Visual Warning introduced and can be set to activate upon a number of matches via argument --v_threshold
 * Audio Warning now optional and can be set to activate upon a number of matches via argument --a_threshold
