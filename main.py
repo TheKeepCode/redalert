@@ -8,6 +8,7 @@ from PIL import Image, ImageDraw
 import os
 import mss
 import pyscreeze
+import tkinter as tk
 
 # Get the directory path of the script
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -20,9 +21,11 @@ modified_screenshots = []
 screenshot_counter = 0
 detected_counter = 0
 
+
 def log_message(message):
     timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")[:-1]
     print(f"[{timestamp}] {message}")
+
 
 def find_all_patterns(pattern_image, screenshot, confidence_threshold=0.99):
     try:
@@ -31,12 +34,14 @@ def find_all_patterns(pattern_image, screenshot, confidence_threshold=0.99):
     except pyscreeze.ImageNotFoundException:
         return []  # Instead of crashing, return an empty list
 
+
 def load_sounds(alert_images):
     sounds = {}
     script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory path of the script
     for alert_image in alert_images:
         sounds[alert_image] = os.path.join(script_dir, "beep.wav")  # Hardcoded sound file name
     return sounds
+
 
 def save_screenshot_with_timestamp(screenshot, alert_image, screenshot_logs_dir, nodisk):
     if not nodisk:
@@ -49,6 +54,7 @@ def save_screenshot_with_timestamp(screenshot, alert_image, screenshot_logs_dir,
         if len(modified_screenshots) > 10:
             os.remove(modified_screenshots.pop(0))  # Remove the oldest screenshot file
 
+
 def highlight_pattern(image, location):
     overlay = np.array(image)
     border_width = 8
@@ -60,10 +66,54 @@ def highlight_pattern(image, location):
     draw.rectangle(expanded_location, outline=(255, 255, 0), width=2)  # Bright yellow rectangle
     return image  # Return the modified image
 
+
 def save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk):
     if not nodisk:
         filename_original = os.path.join(script_dir, screenshot_logs_dir, "latest_screenshot_original.png")
         screenshot.save(filename_original)
+
+
+def select_screen_region():
+    coords = {"x1": None, "y1": None, "x2": None, "y2": None}
+
+    def on_mouse_down(event):
+        coords["x1"] = event.x
+        coords["y1"] = event.y
+        canvas.delete("rect")  # Clear any previous rectangles
+        canvas.create_rectangle(coords["x1"], coords["y1"], coords["x1"], coords["y1"],
+                                outline="red", width=2, tag="rect")
+
+    def on_mouse_drag(event):
+        canvas.coords("rect", coords["x1"], coords["y1"], event.x, event.y)
+
+    def on_mouse_up(event):
+        coords["x2"] = event.x
+        coords["y2"] = event.y
+        root.quit()
+        root.destroy()
+
+    root = tk.Tk()
+    root.attributes("-fullscreen", True)
+    root.attributes("-alpha", 0.3)
+    root.attributes("-topmost", True)
+    root.configure(background='black')
+    canvas = tk.Canvas(root, cursor="cross", bg="black")
+    canvas.pack(fill=tk.BOTH, expand=True)
+
+    canvas.bind("<ButtonPress-1>", on_mouse_down)
+    canvas.bind("<B1-Motion>", on_mouse_drag)
+    canvas.bind("<ButtonRelease-1>", on_mouse_up)
+    root.bind("<Escape>", lambda e: root.quit())
+
+    root.mainloop()
+
+    if None in (coords["x1"], coords["x2"], coords["y1"], coords["y2"]):
+        return "0,0", "0,0"
+
+    x1, x2 = sorted((coords["x1"], coords["x2"]))
+    y1, y2 = sorted((coords["y1"], coords["y2"]))
+    return f"{x1},{x2}", f"{y1},{y2}"
+
 
 def main(screen_x_range, screen_y_range, alert_images, loglevel, nodisk, frequency, a_threshold, v_threshold, sensitivity):
     global detected_counter, screenshot_counter, screenshot_logs_dir  # Declare global variables
@@ -180,10 +230,11 @@ def main(screen_x_range, screen_y_range, alert_images, loglevel, nodisk, frequen
     except KeyboardInterrupt:
         log_message("\nWARNING - Script stopped.")
 
+
 def parse_arguments():
     parser = argparse.ArgumentParser(description="Search for patterns on the screen and play sounds when detected.")
-    parser.add_argument("--screenx", type=str, default="0,1920", help="Screen region for x dimension (start,end)")
-    parser.add_argument("--screeny", type=str, default="0,1080", help="Screen region for y dimension (start,end)")
+    parser.add_argument("--screenx", type=str, default="0,0", help="Screen region for x dimension (start,end)")
+    parser.add_argument("--screeny", type=str, default="0,0", help="Screen region for y dimension (start,end)")
     parser.add_argument("--alertimages", default="terrible.png", nargs="+", help="Filenames of alert images")
     parser.add_argument("--loglevel", type=int, default=1, help="Level of Logging: '0' for none, '1' for standard (default), '2' for verbose")
     parser.add_argument("--nodisk", action="store_true", help="Disables storing screenshots to the disk")
@@ -193,10 +244,19 @@ def parse_arguments():
     parser.add_argument("--sensitivity", type=int, default=2, help="Larger value helps filter out false positives")
     return parser.parse_args()
 
+
 if __name__ == "__main__":
     args = parse_arguments()
+
+    if args.screenx == "0,0" and args.screeny == "0,0":
+        log_message("No coordinates provided — launching box selector...")
+        args.screenx, args.screeny = select_screen_region()
+        log_message(f"Selected region - X: {args.screenx}, Y: {args.screeny}")
+
     a_threshold = args.a_threshold
     v_threshold = args.v_threshold
     if a_threshold <= 0: a_threshold = 9999
     if v_threshold <= 0: v_threshold = 9999
-    main(args.screenx, args.screeny, args.alertimages, args.loglevel, args.nodisk, args.frequency, a_threshold, v_threshold, args.sensitivity)
+
+    main(args.screenx, args.screeny, args.alertimages, args.loglevel, args.nodisk,
+         args.frequency, a_threshold, v_threshold, args.sensitivity)

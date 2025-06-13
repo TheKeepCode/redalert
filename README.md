@@ -5,6 +5,9 @@ This Python3 script should be run on your Windows computer in a separate offscre
 
 ## Changelog
 
+### Version 0.2.0
+* TBD Added box drawing capability, so x,y coordinate input becomes optional and the user can draw a box of the area that they wish for the script to watch
+
 ### Version 0.1.1
 * Minor bugfix to threshold values
 
