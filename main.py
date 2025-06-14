@@ -76,27 +76,47 @@ def save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk):
 def select_screen_region():
     coords = {"x1": None, "y1": None, "x2": None, "y2": None}
 
+    with mss.mss() as sct:
+        monitors = sct.monitors[1:]  # skip first which is full virtual screen, use all monitors
+        # Calculate bounding box that covers all monitors
+        lefts = [m["left"] for m in monitors]
+        tops = [m["top"] for m in monitors]
+        rights = [m["left"] + m["width"] for m in monitors]
+        bottoms = [m["top"] + m["height"] for m in monitors]
+
+        virtual_left = min(lefts)
+        virtual_top = min(tops)
+        virtual_right = max(rights)
+        virtual_bottom = max(bottoms)
+
+        virtual_width = virtual_right - virtual_left
+        virtual_height = virtual_bottom - virtual_top
+
     def on_mouse_down(event):
-        coords["x1"] = event.x
-        coords["y1"] = event.y
-        canvas.delete("rect")  # Clear any previous rectangles
-        canvas.create_rectangle(coords["x1"], coords["y1"], coords["x1"], coords["y1"],
+        # Convert local window coords to global screen coords
+        coords["x1"] = event.x + virtual_left
+        coords["y1"] = event.y + virtual_top
+        canvas.delete("rect")
+        canvas.create_rectangle(event.x, event.y, event.x, event.y,
                                 outline="red", width=2, tag="rect")
 
     def on_mouse_drag(event):
-        canvas.coords("rect", coords["x1"], coords["y1"], event.x, event.y)
+        canvas.coords("rect", coords["x1"] - virtual_left, coords["y1"] - virtual_top, event.x, event.y)
 
     def on_mouse_up(event):
-        coords["x2"] = event.x
-        coords["y2"] = event.y
+        coords["x2"] = event.x + virtual_left
+        coords["y2"] = event.y + virtual_top
         root.quit()
         root.destroy()
 
     root = tk.Tk()
-    root.attributes("-fullscreen", True)
-    root.attributes("-alpha", 0.3)
+    root.overrideredirect(True)
+    # Set geometry to cover the entire virtual screen across all monitors
+    root.geometry(f"{virtual_width}x{virtual_height}+{virtual_left}+{virtual_top}")
     root.attributes("-topmost", True)
+    root.attributes("-alpha", 0.3)
     root.configure(background='black')
+
     canvas = tk.Canvas(root, cursor="cross", bg="black")
     canvas.pack(fill=tk.BOTH, expand=True)
 
