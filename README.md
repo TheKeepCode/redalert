@@ -1,9 +1,76 @@
 # Red Alert
 
-This Python3 script should be run on your Windows computer in a separate offscreen terminal while playing the game.  It will alert you if there is a "Bad" or "Terrible" player on your screen both audibly and via text output via the terminal.
+This is a Python3 tool that runs alongside your game to help identify undesirable players. It scans part of your screen in real-time and notifies you if it detects a "Bad" or "Terrible" player, using both visual and sound alerts.
+
+Use this tool in a separate window while your game is running. It works best when customized to your screen and alert preferences.
+
+
+## Set Up - Run These Once
+
+1. Install the latest version of Python3 from Microsoft Store: https://apps.microsoft.com/search/publisher?name=Python+Software+Foundation&hl=en-us&gl=US
+(This script has been tested with Python3.12)
+2. Open PowerShell (search for "PowerShell" in the Start menu)
+3. Install the required Python packages by running these commands one by one:
+ * Copy and paste the following, then press Enter: `pip3 install pyautogui`
+ * Copy and paste the following, then press Enter: `pip3 install pygame`
+ * Copy and paste the following, then press Enter: `pip3 install numpy`
+ * Copy and paste the following, then press Enter: `pip3 install Pillow`
+ * Copy and paste the following, then press Enter: `pip3 install mss`
+ * Copy and paste the following, then press Enter: `pip3 install pyscreeze`
+ * Copy and paste the following, then press Enter: `pip3 install opencv-python`
+
+
+## Example Usage with Common Options
+
+1. Open PowerShell (search for "PowerShell" in the Start menu)
+2. Change directory to where this code is on your computer by using the `cd` command, entering in the directory, and then pressing Enter
+3. Copy and paste the following, then press Enter: `python3 main.py --alertimages terrible.png neutral.png --a_threshold 2 --vt_red 3 --vt_yellow 2 --vt_gray 1`
+4. When you want to quit, click on your PowerShell session, hold CTRL key, and press the C key
+
+
+## Screenshot Region Selection and Performance Tips
+
+When the script starts, it needs to know which part of your screen to monitor. You can define this area in one of two ways:
+
+### Option 1 - Draw a Box
+If you don’t provide coordinates, a transparent screen will appear. Use your mouse to click and drag a rectangle over the part of the screen you want the script to monitor (such as your game's local window or overview). The area inside this rectangle will be used for image matching.
+
+Press Esc if you want to cancel and exit the selection.
+
+### Option 2 - Manually Define Coordinates
+Use the --screenx and --screeny options if you want to set a custom screen area without drawing it.
+
+--screenx start,end → Horizontal range in pixels (left to right)
+Example: --screenx 100,500 captures from pixel 100 to 500 (400 pixels wide)
+
+--screeny start,end → Vertical range in pixels (top to bottom)
+Example: --screeny 200,800 captures from pixel 200 to 800 (600 pixels high)
+
+Smaller screen regions are faster and use less resources.
+
+
+## Tips for Best Results
+
+You can preview what the script is seeing by checking the file, if you add the `--screenshots` parameter:
+screenshot_logs/latest_screenshot_original.png
+
+Once you're confident the screenshot area is correct, you can disable file-saving (to improve performance) by simply not including the `--screenshots` parameter.
+
+The script prioritizes visual alerts in this order:
+Red > Yellow > Gray
 
 
 ## Changelog
+
+### Version 0.2.0
+* Added box drawing capability, so x,y coordinate input becomes optional
+* The --nodisk parameter has been removed, and its behavior is now the default
+* The --screenshots parameter has been added, which, if supplied, will store screenshot files to the disk
+* Removed --v_threshold, as this will be broken up into colors
+* Added --vt_red, which is the threshold of number of matches for a Red-colored visual alert (highest priority)
+* Added --vt_yellow, which is the threshold of number of matches for a Yellow-colored visual alert
+* Added --vt_gray, which is the threshold of number of matches for a Gray-colored visual alert (lowest priority)
+* Increased Visual Alert blink rate
 
 ### Version 0.1.1
 * Minor bugfix to threshold values
@@ -27,41 +94,6 @@ This Python3 script should be run on your Windows computer in a separate offscre
 
 ### Version 0.0.1
 * Initial Version
-
-
-## Screenshot Parameters and Tips
-
-This script works by frequently taking a screenshot of an area of your monitor that you define (via screenx and screeny parameters) and it compares it against one or more image patterns that you define (via alertimages parameter).  This script comes with a few image files to help you get started.  If this script sees a match of what's on your screen against the images you tell it to look for, it will make a sound or flash the screen yellow (depending on preference) and output some text in your PowerShell window.  You can further refine this by alerting on a minimum number of matches by using the `--a_threshold #` and/or `--v_threshold #` arguments.
-
-The screenx parameter is the X-coordinate of your screenshot, where the first number is the starting position and the second number is your ending position.  So, if you define `--screenx 100,500`, it will take screenshots from the 100th pixel from the left, all the way to the 500th pixel from the left, for a total of 400 pixels wide.
-
-The screeny parameter is the Y-coordinate of your screenshot, where the first number is the starting position and the second number is your ending position.  So, if you define `--screeny 200,800`, it will take screenshots from the 200th pixel from the top, all the way to the 800th pixel from the top, for a total of 600 pixels high.
-
-Combining the screenx and screeny parameters gives you a rectangular area of your screen that this tool will take a screenshot of.  The smaller this screenshot, the faster the Python script will run and the less resource-intensive the tool will be when it's running.
-
-You should set your screen parameters (--screenx and --screeny) to your Local window.  You can use the "screenshot_logs" directory and the "latest_screenshot.png" file to determine the current view that the script sees when it's running.  Once you have the tool working for you and you verified the screenshots are taking the section of the screen that you expect it to, you can improve the tool's performance by passing the `--nodisk` option which will stop the script from saving screenshots to your disk.
-
-
-## Set Up - Run These Once
-
-1. Install the latest version of Python3 from Microsoft Store: https://apps.microsoft.com/search/publisher?name=Python+Software+Foundation&hl=en-us&gl=US
-(This script has been tested with Python3.12)
-2. Open PowerShell
-3. Copy and paste the following, then press Enter: `pip3 install pyautogui`
-4. Copy and paste the following, then press Enter: `pip3 install pygame`
-5. Copy and paste the following, then press Enter: `pip3 install numpy`
-6. Copy and paste the following, then press Enter: `pip3 install Pillow`
-7. Copy and paste the following, then press Enter: `pip3 install mss`
-8. Copy and paste the following, then press Enter: `pip3 install pyscreeze`
-9. Copy and paste the following, then press Enter: `pip3 install opencv-python`
-
-
-## Normal Usage
-
-1. Open PowerShell
-2. Change directory to where this code is on your computer by using the `cd` command, entering in the directory, and then pressing Enter
-3. Copy and paste the following, then press Enter: `python3 main.py --screenx 0,1920 --screeny 0,1440 --alertimages terrible.png`
-4. When you want to quit, click on your PowerShell session, hold CTRL key, and press the C key
 
 
 ## Known Limitations and other FAQ
