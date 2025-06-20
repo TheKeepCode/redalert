@@ -192,6 +192,42 @@ def main(screen_x_range, screen_y_range, alert_images, loglevel, screenshots, fr
                 start_y = max(min(start_y, monitor_end_y - 1), monitor_start_y)
                 end_y = max(min(end_y, monitor_end_y), monitor_start_y + 1)
 
+
+                log_message(f"Parameters:")
+
+                if loglevel <= 0:
+                    log_message(f"--Logging: OFF")
+                elif loglevel == 1:
+                    log_message(f"--Logging: Standard (INFO)")
+                else:
+                    log_message(f"--Logging: Verbose (INFO & DEBUG)")
+
+                if screenshots:
+                    log_message(f"--Saving Screenshots to Disk: ON")
+                else:
+                    log_message(f"--Saving Screenshots to Disk: OFF")
+
+                log_message(f"--Frequency in Taking Screenshots: {frequency} seconds")
+                log_message(f"--Consecutive Matches before Alerting: {sensitivity} Match(es)")
+
+                log_message(f"--Threshold for Alerts:")
+                if a_threshold > 9000:
+                    log_message(f"---Audible Alert      : DISABLED")
+                else:
+                    log_message(f"---Audible Alert      : {a_threshold} Match(es)")
+                if vt_red > 9000:
+                    log_message(f"---Red Visual Alert   : DISABLED")
+                else:
+                    log_message(f"---Red Visual Alert   : {vt_red} Match(es)")
+                if vt_yellow > 9000 or vt_yellow >= vt_red:
+                    log_message(f"---Yellow Visual Alert: DISABLED")
+                else:
+                    log_message(f"---Yellow Visual Alert: {vt_yellow} Match(es)")
+                if vt_gray > 9000 or vt_gray >= vt_red or vt_gray >= vt_yellow:
+                    log_message(f"---Gray Visual Alert  : DISABLED")
+                else:
+                    log_message(f"---Gray Visual Alert  : {vt_gray} Match(es)")
+
                 log_message(f"Capturing screenshots from monitor {monitor_num} - X: {start_x}-{end_x}, Y: {start_y}-{end_y}")
 
                 while True:
@@ -230,29 +266,39 @@ def main(screen_x_range, screen_y_range, alert_images, loglevel, screenshots, fr
 
                     if detected_counter > sensitivity:
                         if num_matches >= match_threshold:
+                            if loglevel >= 1:
+                                log_message(f"INFO - Alerted - Detected {num_matches} time(s), at or above Match Threshold: {match_threshold}.")
                             if num_matches >= a_threshold:
+                                if loglevel >= 2:
+                                    log_message(f"DEBUG - Audible Alert - Detected {num_matches} time(s), at or above A Threshold: {a_threshold}.")
                                 sound_file = sounds[alert_image]
                                 pygame.mixer.Sound(sound_file).play()
                             if num_matches >= vt_red:
+                                if loglevel >= 2:
+                                    log_message(f"DEBUG - Visual Alert - Detected {num_matches} time(s), at or above V Red Threshold: {vt_red}.")
                                 os.system("color C0")
                                 time.sleep(0.25)
                                 os.system("color 0F")
                                 time.sleep(0.25)
                                 os.system("color C0")
                             elif num_matches >= vt_yellow:
+                                if loglevel >= 2:
+                                    log_message(f"DEBUG - Visual Alert - Detected {num_matches} time(s), at or above V Yellow Threshold: {vt_yellow}.")
                                 os.system("color E0")
                                 time.sleep(0.25)
                                 os.system("color 0F")
                                 time.sleep(0.25)
                                 os.system("color E0")
                             elif num_matches >= vt_gray:
+                                if loglevel >= 2:
+                                    log_message(f"DEBUG - Visual Alert - Detected {num_matches} time(s), at or above V Gray Threshold: {vt_gray}.")
                                 os.system("color 80")
                                 time.sleep(0.25)
                                 os.system("color 0F")
                                 time.sleep(0.25)
                                 os.system("color 80")
-                            if loglevel >= 1:
-                                log_message(f"INFO - Alerted - Detected {num_matches} time(s), at or above Match Threshold: {match_threshold}.")
+                            else:
+                                time.sleep(0.5)
                             time.sleep(frequency)
                             os.system("color 0F")
                             time.sleep(0.5)
