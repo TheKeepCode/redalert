@@ -228,6 +228,8 @@ def main(screen_x_range, screen_y_range, alert_images, loglevel, screenshots, fr
                 else:
                     log_message(f"---Gray Visual Alert  : {vt_gray} Match(es)")
 
+                log_message(f"--Alert Images: {alert_images}")
+
                 log_message(f"Capturing screenshots from monitor {monitor_num} - X: {start_x}-{end_x}, Y: {start_y}-{end_y}")
 
                 while True:
