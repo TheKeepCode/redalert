@@ -43,8 +43,8 @@ def load_sounds(alert_images):
     return sounds
 
 
-def save_screenshot_with_timestamp(screenshot, alert_image, screenshot_logs_dir, nodisk):
-    if not nodisk:
+def save_screenshot_with_timestamp(screenshot, alert_image, screenshot_logs_dir, screenshots):
+    if screenshots:
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S-%f")[:-1]
         filename = os.path.join(script_dir, screenshot_logs_dir, f"screenshot_{timestamp}_{alert_image}")
         screenshot.save(filename)
@@ -67,8 +67,8 @@ def highlight_pattern(image, location):
     return image  # Return the modified image
 
 
-def save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk):
-    if not nodisk:
+def save_latest_screenshot(screenshot, screenshot_logs_dir, screenshots):
+    if screenshots:
         filename_original = os.path.join(script_dir, screenshot_logs_dir, "latest_screenshot_original.png")
         screenshot.save(filename_original)
 
@@ -135,14 +135,14 @@ def select_screen_region():
     return f"{x1},{x2}", f"{y1},{y2}"
 
 
-def main(screen_x_range, screen_y_range, alert_images, loglevel, nodisk, frequency, a_threshold, v_threshold, sensitivity):
+def main(screen_x_range, screen_y_range, alert_images, loglevel, screenshots, frequency, a_threshold, vt_red, vt_yellow, vt_gray, sensitivity):
     global detected_counter, screenshot_counter, screenshot_logs_dir  # Declare global variables
 
     # Set the default color of the terminal
     os.system("color 0F")
 
     # Define minimum threshold
-    match_threshold = min(a_threshold, v_threshold)
+    match_threshold = min(a_threshold, vt_red, vt_yellow, vt_gray)
 
     # Get the directory path of the script
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -211,7 +211,7 @@ def main(screen_x_range, screen_y_range, alert_images, loglevel, nodisk, frequen
                             detected = True
                             num_matches += 1
                             screenshot_modified = highlight_pattern(screenshot.copy(), location)
-                            save_screenshot_with_timestamp(screenshot_modified, alert_image, screenshot_logs_dir, nodisk)
+                            save_screenshot_with_timestamp(screenshot_modified, alert_image, screenshot_logs_dir, screenshots)
                             if loglevel >= 2:
                                 log_message(f"DEBUG - Pattern {alert_image} detected!")
 
@@ -233,18 +233,34 @@ def main(screen_x_range, screen_y_range, alert_images, loglevel, nodisk, frequen
                             if num_matches >= a_threshold:
                                 sound_file = sounds[alert_image]
                                 pygame.mixer.Sound(sound_file).play()
-                            if num_matches >= v_threshold:
+                            if num_matches >= vt_red:
+                                os.system("color C0")
+                                time.sleep(0.25)
+                                os.system("color 0F")
+                                time.sleep(0.25)
+                                os.system("color C0")
+                            elif num_matches >= vt_yellow:
                                 os.system("color E0")
+                                time.sleep(0.25)
+                                os.system("color 0F")
+                                time.sleep(0.25)
+                                os.system("color E0")
+                            elif num_matches >= vt_gray:
+                                os.system("color 80")
+                                time.sleep(0.25)
+                                os.system("color 0F")
+                                time.sleep(0.25)
+                                os.system("color 80")
                             if loglevel >= 1:
                                 log_message(f"INFO - Alerted - Detected {num_matches} time(s), at or above Match Threshold: {match_threshold}.")
                             time.sleep(frequency)
                             os.system("color 0F")
-                            time.sleep(1)
+                            time.sleep(0.5)
                         elif num_matches > 0:
                             if loglevel >= 2:
                                 log_message(f"DEBUG - No Alert - Detected {num_matches} time(s), but below Match Threshold: {match_threshold}.")
 
-                    save_latest_screenshot(screenshot, screenshot_logs_dir, nodisk)
+                    save_latest_screenshot(screenshot, screenshot_logs_dir, screenshots)
                     time.sleep(frequency)
 
     except KeyboardInterrupt:
@@ -257,10 +273,12 @@ def parse_arguments():
     parser.add_argument("--screeny", type=str, default="0,0", help="Screen region for y dimension (start,end)")
     parser.add_argument("--alertimages", default="terrible.png", nargs="+", help="Filenames of alert images")
     parser.add_argument("--loglevel", type=int, default=1, help="Level of Logging: '0' for none, '1' for standard (default), '2' for verbose")
-    parser.add_argument("--nodisk", action="store_true", help="Disables storing screenshots to the disk")
+    parser.add_argument("--screenshots", action="store_true", help="Enables storing screenshots to the disk")
     parser.add_argument("--frequency", type=float, default=0.5, help="Frequency of taking screenshots in seconds")
     parser.add_argument("--a_threshold", type=int, default=1, help="Number of matches required to trigger audible alert ('0' disables the alert)")
-    parser.add_argument("--v_threshold", type=int, default=1, help="Number of matches required to trigger visual alert ('0' disables the alert)")
+    parser.add_argument("--vt_red", type=int, default=0, help="Number of matches required to trigger visual alert ('0' disables the alert)")
+    parser.add_argument("--vt_yellow", type=int, default=1, help="Number of matches required to trigger visual alert ('0' disables the alert)")
+    parser.add_argument("--vt_gray", type=int, default=0, help="Number of matches required to trigger visual alert ('0' disables the alert)")
     parser.add_argument("--sensitivity", type=int, default=2, help="Larger value helps filter out false positives")
     return parser.parse_args()
 
@@ -268,15 +286,24 @@ def parse_arguments():
 if __name__ == "__main__":
     args = parse_arguments()
 
-    if args.screenx == "0,0" and args.screeny == "0,0":
-        log_message("No coordinates provided — launching box selector...")
-        args.screenx, args.screeny = select_screen_region()
-        log_message(f"Selected region - X: {args.screenx}, Y: {args.screeny}")
-
+    frequency = args.frequency
     a_threshold = args.a_threshold
-    v_threshold = args.v_threshold
-    if a_threshold <= 0: a_threshold = 9999
-    if v_threshold <= 0: v_threshold = 9999
+    vt_red = args.vt_red
+    vt_yellow = args.vt_yellow
+    vt_gray = args.vt_gray
+    screenx = args.screenx
+    screeny = args.screeny
 
-    main(args.screenx, args.screeny, args.alertimages, args.loglevel, args.nodisk,
-         args.frequency, a_threshold, v_threshold, args.sensitivity)
+    if frequency <= 0.5: frequency = 0.5
+    if a_threshold <= 0: a_threshold = 9999
+    if vt_red <= 0: vt_red = 9999
+    if vt_yellow <= 0: vt_yellow = 9999
+    if vt_gray <= 0: vt_gray = 9999
+
+    if screenx == "0,0" or screeny == "0,0":
+        log_message("Both X and Y coordinates were not provided — launching box selector...")
+        screenx, screeny = select_screen_region()
+        log_message(f"Selected region - X: {screenx}, Y: {screeny}")
+
+    main(screenx, screeny, args.alertimages, args.loglevel, args.screenshots,
+         frequency, a_threshold, vt_red, vt_yellow, vt_gray, args.sensitivity)
