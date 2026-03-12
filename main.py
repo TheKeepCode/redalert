@@ -16,10 +16,12 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 # Initialize pygame for playing sounds
 pygame.init()
 
-# Global variable to keep track of modified screenshots
+# Global variables
 modified_screenshots = []
-screenshot_counter = 0
-detected_counter = 0
+STATE_IDLE = 0
+STATE_DETECTING = 1
+STATE_ACTIVE = 2
+STATE_RECOVERING = 3
 
 
 def log_message(message):
@@ -37,7 +39,6 @@ def find_all_patterns(pattern_image, screenshot, confidence_threshold=0.99):
 
 def load_sounds(alert_images):
     sounds = {}
-    script_dir = os.path.dirname(os.path.abspath(__file__))  # Get the directory path of the script
     for alert_image in alert_images:
         sounds[alert_image] = os.path.join(script_dir, "beep.wav")  # Hardcoded sound file name
     return sounds
@@ -56,7 +57,6 @@ def save_screenshot_with_timestamp(screenshot, alert_image, screenshot_logs_dir,
 
 
 def highlight_pattern(image, location):
-    overlay = np.array(image)
     border_width = 8
     expanded_location = (
         (location.left - border_width, location.top - border_width),
@@ -135,20 +135,19 @@ def select_screen_region():
     return f"{x1},{x2}", f"{y1},{y2}"
 
 
-def main(screen_x_range, screen_y_range, alert_images, loglevel, screenshots, frequency, a_threshold, vt_red, vt_yellow, vt_gray, sensitivity):
-    global detected_counter, screenshot_counter, screenshot_logs_dir  # Declare global variables
-
+def main(screen_x_range, screen_y_range, alert_images, loglevel, screenshots, frequency, a_threshold, a_max, vt_red, vt_yellow, vt_gray, k_threshold, k_action, k_max, sensitivity):
     # Set the default color of the terminal
     os.system("color 0F")
 
     # Define minimum threshold
-    match_threshold = min(a_threshold, vt_red, vt_yellow, vt_gray)
+    match_threshold = min(a_threshold, k_threshold, vt_red, vt_yellow, vt_gray)
 
-    # Get the directory path of the script
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-
-    # Initialize screenshot_counter
-    screenshot_counter = 0
+    # Initialize local vars
+    state = STATE_IDLE
+    detect_counter = 0
+    miss_counter = 0
+    a_count = 0
+    k_count = 0
 
     start_x, end_x = map(int, screen_x_range.split(','))
     start_y, end_y = map(int, screen_y_range.split(','))
@@ -177,10 +176,6 @@ def main(screen_x_range, screen_y_range, alert_images, loglevel, screenshots, fr
     try:
         with mss.mss() as sct:
             for monitor_num, monitor in enumerate(sct.monitors, 1):
-                # Calculate start and end coordinates for each monitor
-                start_x, end_x = map(int, screen_x_range.split(','))
-                start_y, end_y = map(int, screen_y_range.split(','))
-                
                 # Adjust start and end coordinates based on monitor's position
                 monitor_start_x, monitor_start_y = monitor["left"], monitor["top"]
                 monitor_end_x = monitor_start_x + monitor["width"]
@@ -212,25 +207,41 @@ def main(screen_x_range, screen_y_range, alert_images, loglevel, screenshots, fr
 
                 log_message(f"--Threshold for Alerts:")
                 if a_threshold > 9000:
-                    log_message(f"---Audible Alert      : DISABLED")
+                    log_message(f"---Audible Alert                  : DISABLED")
                 else:
-                    log_message(f"---Audible Alert      : {a_threshold} Match(es)")
+                    log_message(f"---Audible Alert                  : {a_threshold} Match(es)")
+                if a_max <= 0:
+                    log_message(f"---Max Consecutive Audible Alerts : INFINITE")
+                else:
+                    log_message(f"---Max Consecutive Audible Alerts : {a_max} Alert(s)")
+                if k_threshold > 9000:
+                    log_message(f"---Keypress Response           : DISABLED")
+                    log_message(f"---Keypress Action             : DISABLED")
+                    log_message(f"---Max Consecutive Key Presses : DISABLED")
+                elif k_max <= 0:
+                    log_message(f"---Keypress Response           : {k_threshold} Match(es)")
+                    log_message(f"---Keypress Action             : {k_action}")
+                    log_message(f"---Max Consecutive Key Presses : INFINITE")
+                else:
+                    log_message(f"---Keypress Response           : {k_threshold} Match(es)")
+                    log_message(f"---Keypress Action             : {k_action}")
+                    log_message(f"---Max Consecutive Key Presses : {k_max} Action(s)")
                 if vt_red > 9000:
-                    log_message(f"---Red Visual Alert   : DISABLED")
+                    log_message(f"---Red Visual Alert    : DISABLED")
                 else:
-                    log_message(f"---Red Visual Alert   : {vt_red} Match(es)")
+                    log_message(f"---Red Visual Alert    : {vt_red} Match(es)")
                 if vt_yellow > 9000 or vt_yellow >= vt_red:
-                    log_message(f"---Yellow Visual Alert: DISABLED")
+                    log_message(f"---Yellow Visual Alert : DISABLED")
                 else:
-                    log_message(f"---Yellow Visual Alert: {vt_yellow} Match(es)")
+                    log_message(f"---Yellow Visual Alert : {vt_yellow} Match(es)")
                 if vt_gray > 9000 or vt_gray >= vt_red or vt_gray >= vt_yellow:
-                    log_message(f"---Gray Visual Alert  : DISABLED")
+                    log_message(f"---Gray Visual Alert   : DISABLED")
                 else:
-                    log_message(f"---Gray Visual Alert  : {vt_gray} Match(es)")
+                    log_message(f"---Gray Visual Alert   : {vt_gray} Match(es)")
 
                 log_message(f"--Alert Images: {alert_images}")
 
-                log_message(f"Capturing screenshots from monitor {monitor_num} - X: {start_x}-{end_x}, Y: {start_y}-{end_y}")
+                log_message(f"Capturing screenshots from monitor {monitor_num} - X: {start_x},{end_x}, Y: {start_y},{end_y}")
 
                 while True:
                     detected = False
@@ -253,28 +264,76 @@ def main(screen_x_range, screen_y_range, alert_images, loglevel, screenshots, fr
                             if loglevel >= 2:
                                 log_message(f"DEBUG - Pattern {alert_image} detected!")
 
-                    if detected:
-                        detected_counter += 1
-                        if loglevel >= 2:
-                            if detected_counter >= 20:
-                                detected_counter = 19
-                                log_message(f"DEBUG - Detected Counter at 20+ since pattern was detected.")
-                            else:
-                                log_message(f"DEBUG - Detected Counter at {detected_counter} since pattern was detected.")
-                    else:
-                        detected_counter = 0
-                        if loglevel >= 2:
-                            log_message(f"DEBUG - Detected Counter at {detected_counter} since pattern was not detected.")
+                    if state == STATE_IDLE:
+                        if detected:
+                            detect_counter = 1
+                            state = STATE_DETECTING
+                            if loglevel >= 2:
+                                log_message("DEBUG - State transition: IDLE -> DETECTING")
 
-                    if detected_counter > sensitivity:
+                    elif state == STATE_DETECTING:
+                        if detected:
+                            detect_counter += 1
+                            if detect_counter > sensitivity:
+                                state = STATE_ACTIVE
+                                detect_counter = 0
+                                if loglevel >= 2:
+                                    log_message("DEBUG - State transition: DETECTING -> ACTIVE")
+                        else:
+                            state = STATE_IDLE
+                            detect_counter = 0
+                            if loglevel >= 2:
+                                log_message("DEBUG - State transition: DETECTING -> IDLE")
+
+                    elif state == STATE_ACTIVE:
+                        if detected:
+                            pass  # remain active
+                        else:
+                            miss_counter = 1
+                            state = STATE_RECOVERING
+                            if loglevel >= 2:
+                                log_message("DEBUG - State transition: ACTIVE -> RECOVERING")
+
+                    elif state == STATE_RECOVERING:
+                        if detected:
+                            state = STATE_ACTIVE
+                            miss_counter = 0
+                            if loglevel >= 2:
+                                log_message("DEBUG - State transition: RECOVERING -> ACTIVE")
+                        else:
+                            miss_counter += 1
+                            if miss_counter > sensitivity:
+                                state = STATE_IDLE
+                                miss_counter = 0
+                                a_count = 0
+                                k_count = 0
+                                if loglevel >= 2:
+                                    log_message("DEBUG - State transition: RECOVERING -> IDLE")
+
+                    if state == STATE_ACTIVE:
                         if num_matches >= match_threshold:
                             if loglevel >= 1:
                                 log_message(f"INFO - Alerted - Detected {num_matches} time(s), at or above Match Threshold: {match_threshold}.")
                             if num_matches >= a_threshold:
-                                if loglevel >= 2:
-                                    log_message(f"DEBUG - Audible Alert - Detected {num_matches} time(s), at or above A Threshold: {a_threshold}.")
-                                sound_file = sounds[alert_image]
-                                pygame.mixer.Sound(sound_file).play()
+                                if a_max <= 0 or a_count < a_max:
+                                    a_count += 1
+                                    if loglevel >= 2:
+                                        log_message(f"DEBUG - Audible Alert - Detected {num_matches} time(s), at or above A Threshold: {a_threshold}, triggered {a_count} consecutive times.")
+                                    sound_file = sounds[alert_image]
+                                    pygame.mixer.Sound(sound_file).play()
+                                else:
+                                    log_message(f"DEBUG - Audible Alert SUPPRESSED - Detected {num_matches} time(s), at or above A Threshold: {a_threshold}, triggered {a_count}/{a_max} consecutive times.")
+                            if num_matches >= k_threshold:
+                                if k_max <= 0 or k_count < k_max:
+                                    k_count += 1
+                                    if loglevel >= 2:
+                                        log_message(f"DEBUG - Keypress Action - Detected {num_matches} time(s), at or above K Threshold: {k_threshold}, triggered {k_count} consecutive times.")
+                                    try:
+                                        pyautogui.press(k_action)
+                                    except Exception as e:
+                                        log_message(f"ERROR - Failed to press key '{k_action}': {e}")
+                                else:
+                                    log_message(f"DEBUG - Keypress Action SUPPRESSED - Detected {num_matches} time(s), at or above K Threshold: {k_threshold}, triggered {k_count}/{k_max} consecutive times.")
                             if num_matches >= vt_red:
                                 if loglevel >= 2:
                                     log_message(f"DEBUG - Visual Alert - Detected {num_matches} time(s), at or above V Red Threshold: {vt_red}.")
@@ -312,6 +371,7 @@ def main(screen_x_range, screen_y_range, alert_images, loglevel, screenshots, fr
                     time.sleep(frequency)
 
     except KeyboardInterrupt:
+        os.system("color 0F")
         log_message("\nWARNING - Script stopped.")
 
 
@@ -322,12 +382,16 @@ def parse_arguments():
     parser.add_argument("--alertimages", default="terrible.png", nargs="+", help="Filenames of alert images")
     parser.add_argument("--loglevel", type=int, default=1, help="Level of Logging: '0' for none, '1' for standard (default), '2' for verbose")
     parser.add_argument("--screenshots", action="store_true", help="Enables storing screenshots to the disk")
-    parser.add_argument("--frequency", type=float, default=0.5, help="Frequency of taking screenshots in seconds")
+    parser.add_argument("--frequency", type=float, default=0.5, help="Frequency of taking screenshots in seconds (min '0.5')")
     parser.add_argument("--a_threshold", type=int, default=1, help="Number of matches required to trigger audible alert ('0' disables the alert)")
+    parser.add_argument("--a_max", type=int, default=0, help="Number of times the audible alert will trigger in a row before it stops - will resume again on a new matching event ('0' disables the max cap)")
     parser.add_argument("--vt_red", type=int, default=0, help="Number of matches required to trigger visual alert ('0' disables the alert)")
     parser.add_argument("--vt_yellow", type=int, default=1, help="Number of matches required to trigger visual alert ('0' disables the alert)")
     parser.add_argument("--vt_gray", type=int, default=0, help="Number of matches required to trigger visual alert ('0' disables the alert)")
-    parser.add_argument("--sensitivity", type=int, default=2, help="Larger value helps filter out false positives")
+    parser.add_argument("--k_threshold", type=int, default=0, help="Number of matches required to trigger keypress response ('0' disables the alert)")
+    parser.add_argument("--k_action", type=str, default="0", help="The keypress to perform every time k_threshold is met (i.e. 0, home, end, f5)")
+    parser.add_argument("--k_max", type=int, default=0, help="Number of times the keypress response will trigger in a row before it stops - will resume again on a new matching event ('0' disables the max cap)")
+    parser.add_argument("--sensitivity", type=int, default=2, help="Larger value helps filter out false positives/negatives, but will delay instantaneous response")
     return parser.parse_args()
 
 
@@ -341,12 +405,15 @@ if __name__ == "__main__":
     vt_gray = args.vt_gray
     screenx = args.screenx
     screeny = args.screeny
+    k_threshold = args.k_threshold
+    k_action = args.k_action.lower()
 
-    if frequency <= 0.5: frequency = 0.5
+    frequency = max(0.5, args.frequency)
     if a_threshold <= 0: a_threshold = 9999
     if vt_red <= 0: vt_red = 9999
     if vt_yellow <= 0: vt_yellow = 9999
     if vt_gray <= 0: vt_gray = 9999
+    if k_threshold <= 0: k_threshold = 9999
 
     if screenx == "0,0" or screeny == "0,0":
         log_message("Both X and Y coordinates were not provided — launching box selector...")
@@ -354,4 +421,5 @@ if __name__ == "__main__":
         log_message(f"Selected region - X: {screenx}, Y: {screeny}")
 
     main(screenx, screeny, args.alertimages, args.loglevel, args.screenshots,
-         frequency, a_threshold, vt_red, vt_yellow, vt_gray, args.sensitivity)
+        frequency, a_threshold, args.a_max, vt_red, vt_yellow, vt_gray,
+        k_threshold, k_action, args.k_max, args.sensitivity)
