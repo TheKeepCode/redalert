@@ -40,6 +40,52 @@ Use this tool in a separate window while your game is running. It works best whe
 4. When you want to quit, click on your PowerShell session, hold CTRL key, and press the C key
 
 
+## Example Batch Files
+
+You can use these example Batch files (copy and paste the contents and save it with the extension `.bat`) to help you define the parameters and save the configuration for later use.  This assumes you downloaded the ZIP file to your Desktop then right-clicked it and pressed Extract All - update the Directory with wherever you extracted this ZIP.
+
+### Safe Area
+```
+@echo off
+setlocal
+cd /d "%USERPROFILE%\Desktop\redalert-main\redalert-main"
+
+python main.py ^
+--alertimages terrible.png ^
+--screenx 500,600 ^
+--screeny 100,600 ^
+--a_threshold 2 ^
+--vt_gray 1 ^
+--vt_yellow 2 ^
+--vt_red 4 ^
+--a_max 5
+
+echo.
+pause
+endlocal
+```
+
+### Unsafe Area
+```
+@echo off
+setlocal
+cd /d "%USERPROFILE%\Desktop\redalert-main\redalert-main"
+
+python main.py ^
+--alertimages neutral.png terrible.png ^
+--screenx 500,600 ^
+--screeny 100,600 ^
+--a_threshold 1 ^
+--vt_gray 1 ^
+--vt_yellow 2 ^
+--vt_red 3 ^
+--a_max 10
+
+echo.
+pause
+endlocal
+```
+
 ## Screenshot Region Selection and Performance Tips
 
 When the script starts, it needs to know which part of your screen to monitor. You can define this area in one of two ways:
